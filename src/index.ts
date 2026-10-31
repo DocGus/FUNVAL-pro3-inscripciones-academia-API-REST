@@ -1,35 +1,60 @@
-
 import express from "express";
-import type { ErrorRequestHandler, Request, Response } from "express";
+import type { ErrorRequestHandler } from "express";
 
-// Conservamos las rutas que ya habías separado en otros archivos.
+// Rutas independientes del proyecto.
 import librosRouter from "./Ejercicios/Eje1-libreria";
 import productosRouter from "./Ejercicios/eje4-middleware";
 import vehiculosRouter from "./Ejercicios/Eje2-flota_autos";
 import pedidosRouter from "./Ejercicios/Eje3-pedidos_comida";
 import estudiantesRouter from "./routes/estudiantes.routes";
+
+// Documentación y CORS.
 import swaggerUi from "swagger-ui-express";
 import swaggerOutput from "../swagger_output.json";
+import cors from "cors";
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT ?? 3000;
 
+// ==========================================
 // MIDDLEWARE GLOBAL
-// Debe ejecutarse antes de las rutas para que Express pueda interpretar
-// los cuerpos JSON enviados en las peticiones POST y PUT.
+// ==========================================
+
+app.use(cors());
 app.use(express.json());
 
-// Rutas independientes que ya existían en el proyecto.
+// ==========================================
+// RUTA PRINCIPAL
+// ==========================================
+
+app.get("/", (_req, res) => {
+  res.status(200).json({
+    ok: true,
+    mensaje: "API FUNVAL funcionando correctamente",
+  });
+});
+
+// ==========================================
+// RUTAS DE LA API
+// ==========================================
+
 app.use("/api/libros", librosRouter);
 app.use("/api/productos", productosRouter);
 app.use("/api/vehiculos", vehiculosRouter);
 app.use("/api/pedidos", pedidosRouter);
 app.use("/api/estudiantes", estudiantesRouter);
+app.use("/api/students", estudiantesRouter);
+
+// ==========================================
 // DOCUMENTACIÓN SWAGGER
+// ==========================================
+
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerOutput));
 
+// ==========================================
 // MIDDLEWARE GLOBAL DE ERRORES
-// Debe registrarse después de las rutas para recibir los errores que se propaguen.
+// ==========================================
+
 const manejarErrores: ErrorRequestHandler = (
   error,
   _req,
@@ -42,7 +67,7 @@ const manejarErrores: ErrorRequestHandler = (
     return;
   }
 
-  // Express identifica los errores del parser JSON mediante la propiedad type.
+  // Identificamos el tipo de error.
   const tipoError =
     typeof error === "object" &&
     error !== null &&
@@ -69,7 +94,7 @@ const manejarErrores: ErrorRequestHandler = (
     return;
   }
 
-  // Los errores no previstos se registran en la terminal.
+  // Errores no previstos.
   console.error("Error interno al procesar la solicitud:", error);
 
   res.status(500).json({
@@ -78,10 +103,12 @@ const manejarErrores: ErrorRequestHandler = (
   });
 };
 
-// El middleware de errores va después de registrar las rutas.
 app.use(manejarErrores);
 
+// ==========================================
 // INICIO DEL SERVIDOR
+// ==========================================
+
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en: http://localhost:${PORT}`);
 });

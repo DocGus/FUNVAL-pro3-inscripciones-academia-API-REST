@@ -5,7 +5,7 @@ import type { Request, Response } from "express";
 // Router independiente para todas las operaciones de estudiantes.
 const estudiantesRouter = Router();
 
-// Modelo de datos solicitado por FUNVAL.
+// Modelo de datos del backend.
 interface Estudiante {
   id: number;
   nombre: string;
@@ -13,13 +13,14 @@ interface Estudiante {
   bootcamp: string;
 }
 
-// Arreglo en memoria compartido por todos los endpoints de este router.
+// Arreglo en memoria compartido por todos los endpoints.
 const listaEstudiantes: Estudiante[] = [];
 
-// Generador de IDs automáticos. El primer estudiante tendrá ID 1.
+// Generador de IDs automáticos.
 let siguienteId = 1;
 
-// Validamos el body de POST y PUT antes de guardar los datos.
+// Validamos los datos recibidos.
+// Aceptamos "nombre" del backend o "name" de Netlify.
 function validarEstudiante(body: unknown): string | null {
   if (
     typeof body !== "object" ||
@@ -30,10 +31,11 @@ function validarEstudiante(body: unknown): string | null {
   }
 
   const datos = body as Record<string, unknown>;
+  const nombre = datos.nombre ?? datos.name;
 
   if (
-    typeof datos.nombre !== "string" ||
-    !datos.nombre.trim()
+    typeof nombre !== "string" ||
+    !nombre.trim()
   ) {
     return "El nombre es obligatorio y debe ser texto.";
   }
@@ -55,9 +57,29 @@ function validarEstudiante(body: unknown): string | null {
   return null;
 }
 
+// Normalizamos los datos para trabajar internamente
+// con "nombre", independientemente de si llega "name".
+function normalizarEstudiante(body: unknown): Omit<Estudiante, "id"> {
+  const datos = body as Record<string, unknown>;
+
+  return {
+    nombre: String(datos.nombre ?? datos.name).trim(),
+    email: String(datos.email).trim(),
+    bootcamp: String(datos.bootcamp).trim(),
+  };
+}
+
+// Adaptamos la respuesta para que Netlify reciba "name".
+function formatearEstudiante(estudiante: Estudiante) {
+  return {
+    ...estudiante,
+    name: estudiante.nombre,
+  };
+}
+
 // GET /api/estudiantes
 // GET /api/estudiantes?bootcamp=Frontend
-// Devuelve todos los estudiantes o filtra por bootcamp.
+// Devuelve directamente un arreglo, como espera Netlify.
 estudiantesRouter.get(
   "/",
   (req: Request, res: Response) => {
@@ -65,28 +87,22 @@ estudiantesRouter.get(
     // #swagger.summary = 'Obtener estudiantes'
     // #swagger.description = 'Devuelve todos los estudiantes registrados. Permite filtrar por nombre de bootcamp.'
     // #swagger.parameters['bootcamp'] = { in: 'query', description: 'Nombre del bootcamp para filtrar', type: 'string' }
+
     const bootcamp = req.query.bootcamp;
 
-    if (typeof bootcamp === "string") {
-      const estudiantesFiltrados = listaEstudiantes.filter(
-        (estudiante) =>
-          estudiante.bootcamp.toLowerCase() === bootcamp.trim().toLowerCase()
-      );
+    let estudiantes = listaEstudiantes;
 
-      return res.status(200).json({
-        ok: true,
-        mensaje: "Lista de estudiantes de FUNVAL",
-        total: estudiantesFiltrados.length,
-        data: estudiantesFiltrados,
-      });
+    if (typeof bootcamp === "string") {
+      estudiantes = listaEstudiantes.filter(
+        (estudiante) =>
+          estudiante.bootcamp.toLowerCase() ===
+          bootcamp.trim().toLowerCase()
+      );
     }
 
-    return res.status(200).json({
-      ok: true,
-      mensaje: "Lista de estudiantes de FUNVAL",
-      total: listaEstudiantes.length,
-      data: listaEstudiantes,
-    });
+    return res.status(200).json(
+      estudiantes.map(formatearEstudiante)
+    );
   }
 );
 
@@ -99,6 +115,7 @@ estudiantesRouter.get(
     // #swagger.summary = 'Obtener estudiante por ID'
     // #swagger.description = 'Busca y devuelve un estudiante utilizando su ID.'
     // #swagger.parameters['id'] = { in: 'path', description: 'ID del estudiante', required: true, type: 'integer' }
+
     const id = Number(req.params.id);
 
     if (!Number.isInteger(id) || id <= 0) {
@@ -121,7 +138,7 @@ estudiantesRouter.get(
 
     return res.status(200).json({
       ok: true,
-      data: estudiante,
+      data: formatearEstudiante(estudiante),
     });
   }
 );
@@ -144,6 +161,7 @@ estudiantesRouter.post(
         bootcamp: 'Frontend'
       }
     } */
+
     const error = validarEstudiante(req.body);
 
     if (error) {
@@ -153,13 +171,11 @@ estudiantesRouter.post(
       });
     }
 
-    const datos = req.body as Omit<Estudiante, "id">;
+    const datos = normalizarEstudiante(req.body);
 
     const nuevoEstudiante: Estudiante = {
       id: siguienteId++,
-      nombre: datos.nombre.trim(),
-      email: datos.email.trim(),
-      bootcamp: datos.bootcamp.trim(),
+      ...datos,
     };
 
     listaEstudiantes.push(nuevoEstudiante);
@@ -167,7 +183,7 @@ estudiantesRouter.post(
     return res.status(201).json({
       ok: true,
       mensaje: "Estudiante registrado con éxito.",
-      data: nuevoEstudiante,
+      data: formatearEstudiante(nuevoEstudiante),
     });
   }
 );
@@ -191,6 +207,7 @@ estudiantesRouter.put(
         bootcamp: 'Backend'
       }
     } */
+
     const id = Number(req.params.id);
 
     if (!Number.isInteger(id) || id <= 0) {
@@ -220,13 +237,11 @@ estudiantesRouter.put(
       });
     }
 
-    const datos = req.body as Omit<Estudiante, "id">;
+    const datos = normalizarEstudiante(req.body);
 
     const estudianteActualizado: Estudiante = {
       id,
-      nombre: datos.nombre.trim(),
-      email: datos.email.trim(),
-      bootcamp: datos.bootcamp.trim(),
+      ...datos,
     };
 
     listaEstudiantes[indice] = estudianteActualizado;
@@ -234,7 +249,7 @@ estudiantesRouter.put(
     return res.status(200).json({
       ok: true,
       mensaje: "Estudiante actualizado con éxito.",
-      data: estudianteActualizado,
+      data: formatearEstudiante(estudianteActualizado),
     });
   }
 );
@@ -248,6 +263,7 @@ estudiantesRouter.delete(
     // #swagger.summary = 'Eliminar estudiante'
     // #swagger.description = 'Elimina un estudiante utilizando su ID.'
     // #swagger.parameters['id'] = { in: 'path', description: 'ID del estudiante', required: true, type: 'integer' }
+
     const id = Number(req.params.id);
 
     if (!Number.isInteger(id) || id <= 0) {
@@ -268,12 +284,14 @@ estudiantesRouter.delete(
       });
     }
 
-    const [estudianteEliminado] = listaEstudiantes.splice(indice, 1);
+    const estudianteEliminado = listaEstudiantes[indice]!;
+
+    listaEstudiantes.splice(indice, 1);
 
     return res.status(200).json({
       ok: true,
       mensaje: "Estudiante eliminado con éxito.",
-      data: estudianteEliminado,
+      data: formatearEstudiante(estudianteEliminado),
     });
   }
 );
