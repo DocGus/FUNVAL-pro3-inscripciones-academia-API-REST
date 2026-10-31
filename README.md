@@ -25,6 +25,8 @@ El objetivo es mantener cada ejercicio organizado en su propio archivo y permiti
 ├── tsconfig.json
 └── src/
     ├── index.ts
+    ├── routes/
+    │   └── estudiantes.routes.ts
     ├── Index1_lunes.ts
     ├── Index_comentado_lunes.ts
     └── Ejercicios/
@@ -37,7 +39,8 @@ El objetivo es mantener cada ejercicio organizado en su propio archivo y permiti
 
 ### Responsabilidad de los archivos
 
-- **`src/index.ts`**: punto de entrada de la aplicación. Configura Express, define las rutas de estudiantes y registra los módulos adicionales.
+- **`src/index.ts`**: punto de entrada de la aplicación. Configura Express y registra los routers de estudiantes y de los ejercicios.
+- **`src/routes/estudiantes.routes.ts`**: router Express para el CRUD de estudiantes, filtrado por bootcamp y validación de datos.
 - **`src/Index_comentado_lunes.ts`**: versión comentada del ejercicio principal, utilizada como material de estudio.
 - **`src/Ejercicios/Eje1-libreria.ts`**: API REST para gestionar una biblioteca digital.
 - **`src/Ejercicios/Eje2-flota_autos.ts`**: API REST para gestionar vehículos de una flota.
@@ -56,6 +59,7 @@ import librosRouter from "./Ejercicios/Eje1-libreria";
 import vehiculosRouter from "./Ejercicios/Eje2-flota_autos";
 import pedidosRouter from "./Ejercicios/Eje3-pedidos_comida";
 import productosRouter from "./Ejercicios/eje4-middleware";
+import estudiantesRouter from "./routes/estudiantes.routes";
 ```
 
 Después los registra en la aplicación:
@@ -65,9 +69,10 @@ app.use("/api/libros", librosRouter);
 app.use("/api/vehiculos", vehiculosRouter);
 app.use("/api/pedidos", pedidosRouter);
 app.use("/api/productos", productosRouter);
+app.use("/api/estudiantes", estudiantesRouter);
 ```
 
-La API de estudiantes está definida directamente en `src/index.ts`; los demás endpoints quedan disponibles bajo el prefijo indicado en cada llamada a `app.use`.
+Las rutas de estudiantes se definen en `src/routes/estudiantes.routes.ts` de forma relativa al router (`/`, `/:id`) y quedan disponibles bajo `/api/estudiantes`. Los demás endpoints quedan disponibles bajo el prefijo indicado en cada llamada a `app.use`.
 
 **Ventaja:** todas las funcionalidades comparten el mismo servidor, pero mantienen separada la lógica de cada ejercicio y sus endpoints.
 
@@ -77,13 +82,14 @@ El sistema permite gestionar estudiantes mediante operaciones CRUD.
 
 | Método | Endpoint | Función |
 |---|---|---|
-| GET | `/api/estudiantes` | Listar estudiantes |
+| GET | `/api/estudiantes` | Listar todos los estudiantes |
+| GET | `/api/estudiantes?bootcamp=Frontend` | Filtrar por bootcamp (sin distinguir mayúsculas/minúsculas) |
 | GET | `/api/estudiantes/:id` | Consultar estudiante por ID |
 | POST | `/api/estudiantes` | Registrar estudiante |
 | PUT | `/api/estudiantes/:id` | Actualizar estudiante |
 | DELETE | `/api/estudiantes/:id` | Eliminar estudiante |
 
-Cada estudiante contiene `id`, `nombre`, `email` y `bootcamp`. El `id` se genera automáticamente y los registros se almacenan temporalmente en un arreglo en memoria, inicialmente vacío. Para crear o actualizar un estudiante, `nombre`, `email` y `bootcamp` son obligatorios y deben ser textos no vacíos.
+Cada estudiante contiene `id`, `nombre`, `email` y `bootcamp`. El `id` se genera automáticamente y los registros se almacenan temporalmente en un arreglo en memoria, inicialmente vacío; se pierden al reiniciar el servidor. Para crear o actualizar un estudiante, `nombre`, `email` y `bootcamp` son obligatorios y deben ser textos no vacíos. Los IDs deben ser enteros positivos; los datos inválidos y los IDs no válidos responden `400 Bad Request`, mientras que un estudiante inexistente responde `404 Not Found`.
 
 ## Ejercicio 1: Biblioteca digital
 
@@ -216,6 +222,12 @@ Consultar un estudiante específico:
 
 ```bash
 curl -i http://localhost:3000/api/estudiantes/1
+```
+
+Filtrar estudiantes por bootcamp (la comparación no distingue mayúsculas/minúsculas):
+
+```bash
+curl -i "http://localhost:3000/api/estudiantes?bootcamp=Frontend"
 ```
 
 Registrar un estudiante. Los campos `nombre`, `email` y `bootcamp` son obligatorios:
